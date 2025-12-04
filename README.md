@@ -1,58 +1,115 @@
-# Brale
+# Brale (Break a leg) 🎭
 
-**项目名称为:** Break a leg
+> **AI-Driven Multi-Agent Quantitative Strategy Engine**
+> 
+> *"Break a leg" in your trading journey!*
 
-Brale 是一个以 AI 决策为核心的多 Agent 量化策略工具。系统会从 Binance 等交易所拉取 K 线数据，切分到多个时间周期后交由技术指标、价格形态、趋势判断等 Agent 协同分析，再交给 provider（如 LLM 模型）生成最终决策。策略信号通过权重聚合后交由 Freqtrade 执行，从而利用其成熟的仓位管理、止盈止损与风控能力。
+[![中文文档](https://img.shields.io/badge/lang-中文-red.svg)](doc/README_CN.md)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/lauk/brale)](go.mod)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## 核心流程
--  使用 go-talib 计算技术指标，输出结构化 JSON。
--  生成可视化图、形态描述，作为 Agent 提示的一部分。
--  汇总多 Agent 结论，通过 provider 生成执行建议
--  再由Freqtrade 对接完成下单。
+**Brale** is a quantitative strategy generator with AI decision-making at its core. Instead of holding funds directly, it acts as a "Super Brain," utilizing multiple agents (Technical Indicators, Pattern Recognition, Trend Analysis) to collaboratively analyze the market. It ultimately generates decision signals via an LLM (Large Language Model) provider and executes trades securely through the powerful [Freqtrade](https://github.com/freqtrade/freqtrade) engine.
 
-## 指标计算
-- **EMA (21/50/200)**：多空趋势的基础骨架，通过最新价与 EMA 的位置给出 `bullish/bearish` 状态。
-- **RSI (14, 30/70 阈值)**：衡量动能，状态为 `overbought/oversold/neutral`。
-- **MACD (12,26,9)**：读取直方值和信号线斜率，区分 `bullish/bearish/flat`。
-- **ROC (9)**：价格变动率，用于捕捉加速或衰减的动量。
-- **Stochastic Oscillator (14,3,3)**：关心 `%K` 与 `%D` 的粘性来识别震荡区间。
-- **Williams %R (14)**：与 Stoch 配合确认极值区域。
-- **ATR (14)**：提供波动率估计，用来动态调整止盈止损或回测滑点。
-- **OBV (On Balance Volume)**：结合 ROC 判断量价共振，推断买卖力量是否同步。
-如果配置中自定义了 horizon profile，则可以覆盖上述周期参数；Indicator 会自动计算所需最小样本数并驱动 `market.Warmup` 拉取更多历史。
+## ✨ Key Features
 
-## 参考项目
-- [nofx ](https://github.com/NoFxAiOS/nofx)：多 Agent 决策提示模板灵感来源，自适应 prompt 结构被 Brale 复用升级。
-- [QuantAgent Prompting](https://github.com/Y-Research-SBU/QuantAgent.git)：多模态指标→形态→趋势聚合的提示链条。
-- [freqtrade/freqtrade](https://github.com/freqtrade/freqtrade)：成熟的开源 CTA 执行引擎，Brale 通过共享策略 `configs/user_data/brale_shared_strategy.py` 与其对接。
+- 🧠 **AI-Driven Decision Making**: Abandons traditional hard-coded logic in favor of LLM-based comprehensive analysis of multi-dimensional data, thinking like a human trader.
+- 🤖 **Multi-Agent Collaboration**:
+  - **Technical Agent**: Calculates hard indicators like EMA, RSI, MACD, ATR.
+  - **Pattern Agent**: Identifies candlestick patterns (e.g., Head and Shoulders, Engulfing).
+  - **Trend Agent**: Combines Multi-timeframe analysis to determine the broader trend.
+- 🛡️ **Standing on the Shoulders of Giants**: Seamless integration with **Freqtrade**. You focus on strategy signals, while Freqtrade handles position management, stop-loss/take-profit, and exchange connectivity.
+- ⚡ **High Performance**: Core logic written in Go, handling concurrent data fetching and indicator calculation for multiple coins.
+- 📊 **Visualization & Explainability**: Generates charts and natural language analysis reports, letting you understand *why* the AI decided to open a trade.
 
-## 快速启动（Docker）
-1. 准备配置  
-   ```bash
-   cp configs/config.example.toml configs/config.toml
-   cp configs/user_data/freqtrade-config.example.json configs/user_data/freqtrade-config.json
-   # 按需填写 API/密钥、交易对等
-   ```
-2. 准备运行目录并复制 freqtrade 配置/策略  
-   ```bash
-   make prepare-dirs
-   ```
-3. 启动服务（建议先 freqtrade，再 brale）  
-   ```bash
-   BRALE_DATA_ROOT=running_log/brale_data FREQTRADE_USERDATA_ROOT=running_log/freqtrade_data docker compose up -d freqtrade
-   # 等待 freqtrade 就绪（约 10 秒）
-   BRALE_DATA_ROOT=running_log/brale_data FREQTRADE_USERDATA_ROOT=running_log/freqtrade_data docker compose up -d brale
-   ```
-   也可一键执行 `scripts/quickstart.sh`（会自动复制配置、make prepare-dirs，并按顺序启动 freqtrade→brale）。
-4. 查看日志与健康检查  
-   ```bash
-   docker compose logs -f freqtrade
-   docker compose logs -f brale
-   curl http://localhost:9991/healthz
-   ```
-5. 本地调试（可选）  
-   ```bash
-   make build
-   BRALE_CONFIG=./configs/config.toml make run
-   ```
+## 🏗️ Architecture
 
+![Architecture](doc/Reasoning-Edition.png)
+
+1.  **Data Acquisition**: Fetches K-line data from exchanges like Binance.
+2.  **Analysis**: Splits data into multiple timeframes and delegates it to Technical, Pattern, and Trend Agents for collaborative analysis.
+3.  **Decision**: Aggregates Agent conclusions and generates a final decision via a Provider (e.g., LLM).
+4.  **Execution**: Strategy signals are aggregated by weight and sent to Freqtrade for execution.
+
+## 🚀 Quick Start (Docker)
+
+### 1. Configuration
+
+```bash
+# Copy configuration templates
+cp configs/config.example.toml configs/config.toml
+cp configs/user_data/freqtrade-config.example.json configs/user_data/freqtrade-config.json
+
+# Notes:
+# 1. Fill in your LLM API Key in configs/config.toml
+# 2. Configure Exchange API in configs/user_data/freqtrade-config.json (or use dry-run mode)
+# 3. Update [ai.multi_agent], [ai.provider_preference], and K-line horizons in config.toml as needed, or use defaults.
+# 4. Ensure [freqtrade.username] and [freqtrade.password] in config.toml match [api_server.username] and [api_server.password] in freqtrade-config.json.
+# 5. To enable Telegram notifications: Set [telegram.enabled] in freqtrade-config.json AND [notify.telegram.enabled] in config.toml to true, then fill in the token and chat_id.
+```
+
+#### 1.1 Proxy Access
+```bash
+# 1. If using a proxy, enable [market.sources.proxy.enabled] in config.toml and fill in your HTTP/SOCKS5 links.
+# 2. Uncomment the proxy environment variables in docker-compose.yml (for both freqtrade and brale services) and set HTTP_PROXY / HTTPS_PROXY to your local port.
+# 3. Update [exchange.ccxt_config.proxies] and [exchange.ccxt_async_config.aiohttp_proxy] in config-proxy.json with your local port (copy these fields to your active config if needed).
+```
+
+### 2. Start Services
+
+Recommended: Use the Make command for a one-click start (cleans environment, prepares directories, and starts services in order):
+
+```bash
+make start
+```
+
+Or manual steps:
+
+```bash
+# 1. Prepare data directories
+make prepare-dirs
+
+# 2. Start Freqtrade (must be started first)
+BRALE_DATA_ROOT=running_log/brale_data FREQTRADE_USERDATA_ROOT=running_log/freqtrade_data docker compose up -d freqtrade
+
+# 3. Start Brale
+BRALE_DATA_ROOT=running_log/brale_data FREQTRADE_USERDATA_ROOT=running_log/freqtrade_data docker compose up -d brale
+```
+
+### 3. Verification
+
+```bash
+# View logs
+make logs
+
+# Health check
+curl http://localhost:9991/healthz
+```
+
+## 🧩 Indicator System
+
+Brale uses `go-talib` to calculate multi-dimensional technical indicators, automatically adjusting based on configuration:
+
+- **Trend**: EMA (21/50/200), MACD (bullish/bearish/flat)
+- **Momentum**: RSI (overbought/oversold), ROC, Stochastic Oscillator, Williams %R
+- **Volatility**: ATR (for dynamic stop-loss or slippage estimation)
+- **Volume**: OBV (combined with ROC for volume-price resonance)
+
+## 🤝 Contributing
+
+Issues and Pull Requests are welcome!
+1. Fork this repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Freqtrade](https://github.com/freqtrade/freqtrade) - The leading open-source crypto trading bot
+- [NoFxAiOS/nofx](https://github.com/NoFxAiOS/nofx) - Inspiration for Multi-Agent decision prompting
+- [adshao/go-binance](https://github.com/adshao/go-binance) - Elegant Go Binance SDK
+- [go-talib](https://github.com/markcheno/go-talib) - Go Technical Analysis Library
